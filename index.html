@@ -335,14 +335,14 @@
     </div>
 
     <div class="mobile-controls" id="mobileControls">
-        <button class="mob-btn" data-action="rotate">↻ 旋转</button>
-        <button class="mob-btn" data-action="left">← 左</button>
-        <button class="mob-btn" data-action="right">→ 右</button>
-        <button class="mob-btn" data-action="down">↓ 下</button>
-        <button class="mob-btn" data-action="drop">⤓ 落底</button>
+        <button class="mob-btn" data-action="rotate">🔄 旋转</button>
+        <button class="mob-btn" data-action="left">⬅️ 左</button>
+        <button class="mob-btn" data-action="right">➡️ 右</button>
+        <button class="mob-btn" data-action="down">⬇️ 下</button>
+        <button class="mob-btn" data-action="drop">⬇️⬇️ 落底</button>
         <button class="mob-btn skill" data-action="skill-bomb" id="mobBomb">💣</button>
         <button class="mob-btn skill" data-action="skill-freeze" id="mobFreeze">❄️</button>
-        <button class="mob-btn skill" data-action="skill-gravity" id="mobGravity">🔄</button>
+        <button class="mob-btn skill" data-action="skill-gravity" id="mobGravity">🌍</button>
     </div>
 
     <div class="controls-desktop">
@@ -1045,7 +1045,7 @@ function updateUI() {
 }
 
 function movePiece(dx, dy) {
-    if (isPaused || isGameOver || isFrozen) return false;
+    if (!currentPiece || isPaused || isGameOver || isFrozen) return false;
     const nx = currentPiece.x + dx, ny = currentPiece.y + dy;
     if (isValidPosition(nx, ny, currentPiece.rotation)) {
         currentPiece.x = nx; currentPiece.y = ny;
@@ -1055,7 +1055,7 @@ function movePiece(dx, dy) {
     return false;
 }
 function rotatePiece() {
-    if (isPaused || isGameOver || isFrozen) return;
+    if (!currentPiece || isPaused || isGameOver || isFrozen) return;
     const nr = (currentPiece.rotation + 1) % 4;
     if (isValidPosition(currentPiece.x, currentPiece.y, nr)) {
         currentPiece.rotation = nr;
@@ -1066,13 +1066,16 @@ function rotatePiece() {
     }
     AudioSys.sfxRotate();
 }
+let isDropping = false;
 function hardDrop() {
-    if (isPaused || isGameOver || isFrozen) return;
+    if (isDropping || !currentPiece || isPaused || isGameOver || isFrozen) return;
+    isDropping = true;
     let dist = 0;
     while (movePiece(0, 1)) dist++;
     score += dist * 2;
     lockPiece(); clearLines(); spawnPiece();
     updateUI();
+    isDropping = false;
 }
 
 function useSkillBomb() {
@@ -1394,9 +1397,15 @@ document.getElementById('goSaveBtn').addEventListener('click', async () => {
 });
 
 // ========================================================================
-// 移动端触摸控制（pointerdown 同时支持触摸和鼠标）
+// 移动端触摸控制
 // ========================================================================
+let lastActionTime = 0;
+const ACTION_DEBOUNCE = 100; // ms，防止 pointerdown + touchstart 同时触发
+
 function handleMobileAction(action) {
+    const now = Date.now();
+    if (now - lastActionTime < ACTION_DEBOUNCE) return;
+    lastActionTime = now;
     if (!gameRunning || isGameOver) return;
     switch (action) {
         case 'left': movePiece(-1, 0); break;
@@ -1412,9 +1421,10 @@ function handleMobileAction(action) {
 
 const mobileControls = document.getElementById('mobileControls');
 
-// pointerdown 统一处理触摸和鼠标（无 300ms 延迟）
+// pointerdown 同时支持触摸和鼠标，无 300ms 延迟
 mobileControls.addEventListener('pointerdown', (e) => {
-    const btn = e.target.closest('.mob-btn');
+    const el = e.target.nodeType === 3 ? e.target.parentElement : e.target;
+    const btn = el.closest('.mob-btn');
     if (!btn) return;
     e.preventDefault();
     handleMobileAction(btn.dataset.action);
@@ -1422,17 +1432,10 @@ mobileControls.addEventListener('pointerdown', (e) => {
     setTimeout(() => btn.style.transform = '', 80);
 });
 
-// 后备：touchstart 直接触发（防止某些浏览器不触发 pointerdown）
-mobileControls.addEventListener('touchstart', (e) => {
-    const btn = e.target.closest('.mob-btn');
-    if (!btn) return;
-    e.preventDefault();
-    handleMobileAction(btn.dataset.action);
-}, { passive: false });
-
-// 后备：click 用于桌面端（不调用 preventDefault）
+// click 作为桌面鼠标后备
 mobileControls.addEventListener('click', (e) => {
-    const btn = e.target.closest('.mob-btn');
+    const el = e.target.nodeType === 3 ? e.target.parentElement : e.target;
+    const btn = el.closest('.mob-btn');
     if (!btn) return;
     handleMobileAction(btn.dataset.action);
 });
