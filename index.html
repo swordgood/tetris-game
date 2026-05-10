@@ -13,6 +13,8 @@
             min-height: 100vh; min-height: 100dvh;
             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
             color: #eee; overflow-x: hidden; padding: 8px;
+            overscroll-behavior: none;
+            touch-action: manipulation;
         }
         h1 {
             font-size: 1.5rem; color: #ffd700;
@@ -47,6 +49,7 @@
         }
         .canvas-wrapper {
             position: relative; display: flex; flex-direction: column; align-items: center;
+            touch-action: none;
         }
 
         #gameCanvas {
@@ -235,6 +238,7 @@
             display: none;
             grid-template-columns: repeat(4, 1fr);
             gap: 6px; margin-top: 8px; max-width: 340px; width: 100%;
+            touch-action: none;
         }
         .mob-btn {
             padding: 14px 4px; font-size: 1.2rem;
@@ -1389,11 +1393,11 @@ document.getElementById('goSaveBtn').addEventListener('click', async () => {
     });
 });
 
-// 移动端触摸控制
-document.getElementById('mobileControls').addEventListener('click', (e) => {
-    const btn = e.target.closest('.mob-btn');
-    if (!btn) return;
-    const action = btn.dataset.action;
+// ========================================================================
+// 移动端触摸控制（pointerdown 同时支持触摸和鼠标）
+// ========================================================================
+function handleMobileAction(action) {
+    if (!gameRunning || isGameOver) return;
     switch (action) {
         case 'left': movePiece(-1, 0); break;
         case 'right': movePiece(1, 0); break;
@@ -1404,10 +1408,34 @@ document.getElementById('mobileControls').addEventListener('click', (e) => {
         case 'skill-freeze': useSkillFreeze(); break;
         case 'skill-gravity': useSkillGravity(); break;
     }
-});
-document.getElementById('mobileControls').addEventListener('touchstart', (e) => {
+}
+
+const mobileControls = document.getElementById('mobileControls');
+
+// pointerdown 统一处理触摸和鼠标（无 300ms 延迟）
+mobileControls.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.mob-btn');
+    if (!btn) return;
     e.preventDefault();
+    handleMobileAction(btn.dataset.action);
+    btn.style.transform = 'scale(0.9)';
+    setTimeout(() => btn.style.transform = '', 80);
+});
+
+// 后备：touchstart 直接触发（防止某些浏览器不触发 pointerdown）
+mobileControls.addEventListener('touchstart', (e) => {
+    const btn = e.target.closest('.mob-btn');
+    if (!btn) return;
+    e.preventDefault();
+    handleMobileAction(btn.dataset.action);
 }, { passive: false });
+
+// 后备：click 用于桌面端（不调用 preventDefault）
+mobileControls.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mob-btn');
+    if (!btn) return;
+    handleMobileAction(btn.dataset.action);
+});
 
 // Canvas 响应式
 function resizeCanvas() {
