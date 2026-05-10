@@ -1400,7 +1400,8 @@ document.getElementById('goSaveBtn').addEventListener('click', async () => {
 // 移动端触摸控制
 // ========================================================================
 let lastActionTime = 0;
-const ACTION_DEBOUNCE = 100; // ms，防止 pointerdown + touchstart 同时触发
+const ACTION_DEBOUNCE = 350; // 必须 > pointerdown→click 的 300ms 延迟
+let pointerHandled = false;  // 标记 pointerdown 已处理，阻止后续 click
 
 function handleMobileAction(action) {
     const now = Date.now();
@@ -1421,19 +1422,21 @@ function handleMobileAction(action) {
 
 const mobileControls = document.getElementById('mobileControls');
 
-// pointerdown 同时支持触摸和鼠标，无 300ms 延迟
+// pointerdown：触摸/鼠标即时响应（无 300ms 延迟）
 mobileControls.addEventListener('pointerdown', (e) => {
     const el = e.target.nodeType === 3 ? e.target.parentElement : e.target;
     const btn = el.closest('.mob-btn');
     if (!btn) return;
     e.preventDefault();
+    pointerHandled = true;
     handleMobileAction(btn.dataset.action);
     btn.style.transform = 'scale(0.9)';
-    setTimeout(() => btn.style.transform = '', 80);
+    setTimeout(() => { btn.style.transform = ''; pointerHandled = false; }, 400);
 });
 
-// click 作为桌面鼠标后备
+// click：纯桌面鼠标后备；如果已被 pointerdown 处理则忽略
 mobileControls.addEventListener('click', (e) => {
+    if (pointerHandled) return;
     const el = e.target.nodeType === 3 ? e.target.parentElement : e.target;
     const btn = el.closest('.mob-btn');
     if (!btn) return;
